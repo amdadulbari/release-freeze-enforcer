@@ -29,11 +29,11 @@ inputs:
   duration_minutes:
     description: 'Duration in minutes for each recurring occurrence (required if rrule is set)'
     required: false
-  allow_override_label:
-    description: 'Pull Request label that allows bypassing the freeze'
-    required: false
   allow_override_actor:
     description: 'Username or team allowed to override the freeze (optional)'
+    required: false
+  override:
+    description: 'Secret token value (e.g. from secrets). If set to "true", passes the freeze.'
     required: false
   fail_message:
     description: 'Custom message to display when the action blocks a deployment'

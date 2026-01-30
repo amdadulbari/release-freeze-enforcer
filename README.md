@@ -53,18 +53,19 @@ Prevent deployments every Friday from 5 PM to Monday 9 AM (Europe/Berlin):
           fail_message: 'Deployments are frozen for the weekend!'
 ```
 
-### Allow Hotfixes via PR Label
+### Allow via Repository Secret
 
-Allow deployments if the Pull Request has the label `hotfix-override`:
+Bypass the freeze if a secret (e.g., `FORCE_RELEASE`) is set to `true`:
 
 ```yaml
       - name: Check Freeze
         uses: amdadulbari/release-freeze-enforcer@v1
         with:
           environment: production
-          rrule: 'FREQ=WEEKLY;BYDAY=SA,SU' # Weekends
-          duration_minutes: 1440 # 24 hours
-          allow_override_label: 'hotfix-override'
+          rrule: 'FREQ=WEEKLY;BYDAY=SA,SU'
+          duration_minutes: 1440
+          # Pass the secret value; if it resolves to 'true', freeze is ignored
+          override: ${{ secrets.FORCE_RELEASE }}
 ```
 
 ## Inputs
@@ -78,8 +79,8 @@ Allow deployments if the Pull Request has the label `hotfix-override`:
 | `freeze_end` | No | | End of fixed freeze window. |
 | `rrule` | No | | [RRULE string](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for recurring events. |
 | `duration_minutes` | No | | Duration of the recurring freeze in minutes. Required if `rrule` is used. |
-| `allow_override_label` | No | | If set, PRs with this label bypass the freeze. |
 | `allow_override_actor` | No | | Username of a user allowed to bypass the freeze. |
+| `override` | No | | Secret value (e.g. `${{ secrets.MY_KEY }}`). If matches `true`, freeze is bypassed. |
 | `fail_message` | No | *Default msg* | Custom error message shown when blocked. |
 | `summary` | No | `true` | Show a job summary markdown table. |
 

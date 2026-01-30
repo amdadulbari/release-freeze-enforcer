@@ -6,16 +6,13 @@ from dateutil import rrule, parser
 import pytz
 
 def get_input(name, default=None):
-    """Retrieve input from environment variables (INPUT_NAME)."""
     return os.environ.get(f"INPUT_{name.upper()}", default)
 
 def set_output(name, value):
-    """Write output to GITHUB_OUTPUT."""
     with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
         f.write(f"{name}={value}\n")
 
 def write_summary(environ, now_local, now_utc, is_frozen, decision, window_details, override_details):
-    """Write a summary to GITHUB_STEP_SUMMARY."""
     if get_input("summary", "true").lower() != "true":
         return
 
@@ -52,7 +49,6 @@ def parse_timezone(tz_str):
         sys.exit(1)
 
 def main():
-    # 1. Inputs
     env_name = get_input("environment")
     if not env_name:
         print("::error::Input 'environment' is required.")
@@ -64,8 +60,8 @@ def main():
     freeze_end_str = get_input("freeze_end")
     rrule_str = get_input("rrule")
     duration_mins = get_input("duration_minutes")
-    allow_override_label = get_input("allow_override_label")
-    allow_override_actor = get_input("allow_override_actor") # Placeholder for actor logic
+    allow_override_actor = get_input("allow_override_actor")
+    secret_override = get_input("override")
     fail_msg = get_input("fail_message", "Release freeze is active. Deployment prevented.")
 
     timezone = parse_timezone(tz_str)
@@ -75,7 +71,6 @@ def main():
     print(f"Checking freeze for environment: {env_name}")
     print(f"Current time: {now_local} ({tz_str}) / {now_utc} (UTC)")
 
-    # 2. Freeze Logic
     is_frozen = False
     window_type = "NONE"
     window_name = ""
@@ -83,16 +78,12 @@ def main():
     active_end = None
     reason = "No active freeze window"
 
-    # Validation: Fixed vs Recurring
     if (freeze_start_str or freeze_end_str) and rrule_str:
         print("::error::Cannot specify both fixed window (freeze_start/end) and recurring window (rrule).")
         sys.exit(1)
 
-    # A) Fixed Window
     if freeze_start_str and freeze_end_str:
         try:
-            # Parse as naive then localize, or parse specific if ISO contains offset
-            # Assuming input is local time if no offset provided, as per requirements
             dt_start = parser.parse(freeze_start_str)
             dt_end = parser.parse(freeze_end_str)
             
@@ -112,7 +103,6 @@ def main():
             print(f"::error::Failed to parse fixed window dates: {e}")
             sys.exit(1)
 
-    # B) Recurring Window
     elif rrule_str:
         if not duration_mins:
             print("::error::Input 'duration_minutes' is required when using 'rrule'.")
@@ -120,37 +110,17 @@ def main():
         
         try:
             duration = int(duration_mins)
-            # Create rrule object. IMPORTANT: rrule is naive-ish often, usually simpler to work in UTC or consistent generic time
-            # We will generate occurrences based on the rrule string.
-            # rrule logic can be tricky with timezones. We'll rely on dateutil.
-            # Best practice: use the rrule to find the *previous* occurrence relative to now, check if now < occurrence + duration
-            
-            # We need a start point for rrule caching usually, but RFC string usually implies one or infinite.
-            # Let's interpret the rrule string.
             rule = rrule.rrulestr(rrule_str, dtstart=now_local.replace(tzinfo=None)) 
-            # Note: rrulestr dtstart often ignored if DTSTART is in string. 
-            # If DTSTART is missing, it defaults to now, which might be okay loop-wise but risky.
-            
-            # Evaluate: Find the last occurrence before or equal to now
-            # We look back a bit.
-            # Using 'before' might miss the start if we are strictly ON the start second.
-            # 'inc=True' helps.
-            # We need to treat rrule generated dates as "local time naive" typically unless specified.
-            # We compare naive local "now" with the rrule dates
             
             now_naive = now_local.replace(tzinfo=None)
-            
-            # Get the most recent start time
             last_start = rule.before(now_naive, inc=True)
             
             if last_start:
-                # Check if we are still within duration
                 window_end = last_start + datetime.timedelta(minutes=duration)
                 if now_naive < window_end:
                      is_frozen = True
                      window_type = "RRULE"
                      window_name = "Recurring Freeze Window"
-                     # Localize back for reporting
                      active_start = timezone.localize(last_start)
                      active_end = timezone.localize(window_end)
                      reason = "Current time is within recurring freeze window"
@@ -159,39 +129,23 @@ def main():
             print(f"::error::Failed to process rrule: {e}")
             sys.exit(1)
 
-    # 3. Override Logic
     overridden = False
     override_reason_text = ""
     
     if is_frozen:
-        # Check label override
-        if allow_override_label and os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
-            event_path = os.environ.get('GITHUB_EVENT_PATH')
-            if event_path and os.path.exists(event_path):
-                try:
-                    with open(event_path, 'r') as f:
-                        payload = json.load(f)
-                    
-                    pr_labels = [l['name'] for l in payload.get('pull_request', {}).get('labels', [])]
-                    if allow_override_label in pr_labels:
-                        overridden = True
-                        override_reason_text = f"PR label '{allow_override_label}' matched"
-                        print(f"Override applied: {override_reason_text}")
-                except Exception as e:
-                    print(f"::warning::Failed to read event payload for label check: {e}")
-            else:
-                print("::warning::GITHUB_EVENT_PATH not found, skipping label check.")
-        
-        # Check actor override (basic username check)
         if allow_override_actor and not overridden:
-            # Simplistic check: matches github.actor or sender.login
             actor = os.environ.get('GITHUB_ACTOR')
             if actor == allow_override_actor:
                  overridden = True
                  override_reason_text = f"Actor '{actor}' is allowed to override"
                  print(f"Override applied: {override_reason_text}")
 
-    # 4. Decision
+        if secret_override and not overridden:
+            if secret_override.lower() == 'true':
+                overridden = True
+                override_reason_text = "Secret override matched 'true'"
+                print(f"Override applied: {override_reason_text}")
+
     final_decision = "ALLOW"
     exit_code = 0
     
@@ -203,14 +157,13 @@ def main():
             final_decision = "WARN"
             exit_code = 0
             print(f"::warning::{fail_msg}")
-        else: # allow
-            final_decision = "ALLOW" # explicitly allowed despite freeze
+        else:
+            final_decision = "ALLOW"
             print(f"::notice::Freeze active but behavior is 'allow'.")
     elif is_frozen and overridden:
         final_decision = "ALLOW"
         reason = f"Frozen but overridden: {override_reason_text}"
 
-    # 5. Outputs
     set_output("is_frozen", "true" if is_frozen else "false")
     set_output("decision", final_decision)
     set_output("environment", env_name)
@@ -224,7 +177,6 @@ def main():
     set_output("overridden", "true" if overridden else "false")
     set_output("override_reason", override_reason_text)
 
-    # 6. Summary
     window_details_str = ""
     if active_start and active_end:
         window_details_str = f"- **Start:** {active_start}\n- **End:** {active_end}"

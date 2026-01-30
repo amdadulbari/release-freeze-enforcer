@@ -172,36 +172,31 @@ class TestReleaseFreezeEnforcer(unittest.TestCase):
         self.assertIn('maintainer_user', outputs['override_reason'])
 
     @patch('entrypoint.datetime')
-    def test_override_by_label(self, mock_datetime):
+    def test_override_by_secret(self, mock_datetime):
         # Mock time: 2023-12-25 10:00:00 UTC (Frozen)
         target_now = datetime.datetime(2023, 12, 25, 10, 0, 0, tzinfo=pytz.utc)
         self.configure_mock_datetime(mock_datetime, target_now)
         
-        # Mock PR Event
-        os.environ['GITHUB_EVENT_NAME'] = 'pull_request'
-        event_path = 'event.json'
-        with open(event_path, 'w') as f:
-            f.write('{"pull_request": {"labels": [{"name": "hotfix-override"}, {"name": "bug"}]}}')
-        os.environ['GITHUB_EVENT_PATH'] = event_path
-        
         self.set_input('environment', 'production')
         self.set_input('freeze_start', '2023-12-24T00:00')
         self.set_input('freeze_end', '2023-12-26T00:00')
-        self.set_input('allow_override_label', 'hotfix-override')
         
-        try:
-            with self.assertRaises(SystemExit) as cm:
-                entrypoint.main()
-            
-            self.assertEqual(cm.exception.code, 0)
-            outputs = self.read_output()
-            self.assertEqual(outputs['is_frozen'], 'true')
-            self.assertEqual(outputs['overridden'], 'true')
-            self.assertEqual(outputs['decision'], 'ALLOW')
-            self.assertIn('hotfix-override', outputs['override_reason'])
-        finally:
-            if os.path.exists(event_path):
-                os.remove(event_path)
+        # 1. Test invalid secret (not True) -> Should Fail
+        self.set_input('override', 'some-random-token')
+        with self.assertRaises(SystemExit) as cm:
+            entrypoint.main()
+        self.assertEqual(cm.exception.code, 1)
+
+        # 2. Test valid secret ("true") -> Should Pass
+        self.set_input('override', 'true')
+        with self.assertRaises(SystemExit) as cm:
+            entrypoint.main()
+        
+        self.assertEqual(cm.exception.code, 0)
+        outputs = self.read_output()
+        self.assertEqual(outputs['is_frozen'], 'true')
+        self.assertEqual(outputs['overridden'], 'true')
+        self.assertIn("Secret override matched 'true'", outputs['override_reason'])
 
 if __name__ == '__main__':
     unittest.main()
