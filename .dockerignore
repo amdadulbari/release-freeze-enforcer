@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# CI
+.github/
+
+# Documentation
+README.md
+LICENSE

@@ -1,0 +1,74 @@
+name: 'Release Freeze Enforcer'
+description: 'Enforce release-freeze windows in CI/CD pipelines to prevent deployments during restricted periods.'
+author: 'amdadulbari'
+branding:
+  icon: 'lock'
+  color: 'blue'
+
+inputs:
+  environment:
+    description: 'The deployment environment name (e.g., production, staging)'
+    required: true
+  behavior:
+    description: 'Action behavior when frozen: block (fail), warn, or allow'
+    required: false
+    default: 'block'
+  timezone:
+    description: 'IANA Timezone string (e.g., UTC, Asia/Dhaka)'
+    required: false
+    default: 'UTC'
+  freeze_start:
+    description: 'Fixed window start time (ISO-like: YYYY-MM-DDTHH:MM)'
+    required: false
+  freeze_end:
+    description: 'Fixed window end time (ISO-like: YYYY-MM-DDTHH:MM)'
+    required: false
+  rrule:
+    description: 'RRULE string for recurring freezes (RFC 5545)'
+    required: false
+  duration_minutes:
+    description: 'Duration in minutes for each recurring occurrence (required if rrule is set)'
+    required: false
+  allow_override_label:
+    description: 'Pull Request label that allows bypassing the freeze'
+    required: false
+  allow_override_actor:
+    description: 'Username or team allowed to override the freeze (optional)'
+    required: false
+  fail_message:
+    description: 'Custom message to display when the action blocks a deployment'
+    required: false
+  summary:
+    description: 'Whether to post a job summary to the workflow run'
+    required: false
+    default: 'true'
+
+outputs:
+  is_frozen:
+    description: 'true if the current time is within a freeze window, false otherwise'
+  decision:
+    description: 'Final decision: ALLOW, WARN, or BLOCK'
+  environment:
+    description: 'The environment checked'
+  now_local:
+    description: 'Current time in the configured timezone'
+  now_utc:
+    description: 'Current time in UTC'
+  window_type:
+    description: 'Type of window matched: FIXED, RRULE, or NONE'
+  window_name:
+    description: 'Name/description of the active freeze window'
+  reason:
+    description: 'Reason for the decision'
+  freeze_start:
+    description: 'Start time of the active freeze window'
+  freeze_end:
+    description: 'End time of the active freeze window'
+  overridden:
+    description: 'true if the freeze was active but overridden'
+  override_reason:
+    description: 'Reason for the override (e.g., PR label)'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
