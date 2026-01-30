@@ -1,6 +1,6 @@
 # Release Freeze Enforcer
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/amdadulbari/release-freeze-enforcer)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/amdadulbari/release-freeze-enforcer)
 ![License](https://img.shields.io/github/license/amdadulbari/release-freeze-enforcer)
 
 Enforce release-freeze windows in your GitHub Actions workflows. Prevent deployments during weekends, holidays, or critical business periods.
