@@ -148,30 +148,6 @@ class TestReleaseFreezeEnforcer(unittest.TestCase):
         self.assertEqual(outputs['is_frozen'], 'false')
 
     @patch('entrypoint.datetime')
-    def test_override_by_actor(self, mock_datetime):
-        # Mock time: 2023-12-25 10:00:00 UTC (Frozen)
-        target_now = datetime.datetime(2023, 12, 25, 10, 0, 0, tzinfo=pytz.utc)
-        self.configure_mock_datetime(mock_datetime, target_now)
-        
-        os.environ['GITHUB_ACTOR'] = 'maintainer_user'
-        
-        self.set_input('environment', 'production')
-        self.set_input('freeze_start', '2023-12-24T00:00')
-        self.set_input('freeze_end', '2023-12-26T00:00')
-        self.set_input('allow_override_actor', 'maintainer_user')
-        
-        with self.assertRaises(SystemExit) as cm:
-            entrypoint.main()
-            
-        # Should be ALLOWED because of override
-        self.assertEqual(cm.exception.code, 0)
-        outputs = self.read_output()
-        self.assertEqual(outputs['is_frozen'], 'true')
-        self.assertEqual(outputs['overridden'], 'true')
-        self.assertEqual(outputs['decision'], 'ALLOW')
-        self.assertIn('maintainer_user', outputs['override_reason'])
-
-    @patch('entrypoint.datetime')
     def test_override_by_secret(self, mock_datetime):
         # Mock time: 2023-12-25 10:00:00 UTC (Frozen)
         target_now = datetime.datetime(2023, 12, 25, 10, 0, 0, tzinfo=pytz.utc)

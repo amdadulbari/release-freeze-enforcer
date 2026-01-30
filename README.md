@@ -79,7 +79,6 @@ Bypass the freeze if a secret (e.g., `FORCE_RELEASE`) is set to `true`:
 | `freeze_end` | No | | End of fixed freeze window. |
 | `rrule` | No | | [RRULE string](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for recurring events. |
 | `duration_minutes` | No | | Duration of the recurring freeze in minutes. Required if `rrule` is used. |
-| `allow_override_actor` | No | | Username of a user allowed to bypass the freeze. |
 | `override` | No | | Secret value (e.g. `${{ secrets.MY_KEY }}`). If matches `true`, freeze is bypassed. |
 | `fail_message` | No | *Default msg* | Custom error message shown when blocked. |
 | `summary` | No | `true` | Show a job summary markdown table. |

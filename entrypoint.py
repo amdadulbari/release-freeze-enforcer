@@ -60,7 +60,6 @@ def main():
     freeze_end_str = get_input("freeze_end")
     rrule_str = get_input("rrule")
     duration_mins = get_input("duration_minutes")
-    allow_override_actor = get_input("allow_override_actor")
     secret_override = get_input("override")
     fail_msg = get_input("fail_message", "Release freeze is active. Deployment prevented.")
 
@@ -133,13 +132,6 @@ def main():
     override_reason_text = ""
     
     if is_frozen:
-        if allow_override_actor and not overridden:
-            actor = os.environ.get('GITHUB_ACTOR')
-            if actor == allow_override_actor:
-                 overridden = True
-                 override_reason_text = f"Actor '{actor}' is allowed to override"
-                 print(f"Override applied: {override_reason_text}")
-
         if secret_override and not overridden:
             if secret_override.lower() == 'true':
                 overridden = True
